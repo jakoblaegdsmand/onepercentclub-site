@@ -11,6 +11,9 @@ from fabric.api import env, roles, sudo, prefix, cd, task, require, run, local, 
 from fabric.contrib.console import confirm
 from fabric.colors import green, red
 from contextlib import contextmanager
+from os import urandom
+from base64 import urlsafe_b64encode
+import re
 
 
 # Configuration settings:
@@ -33,6 +36,10 @@ env.web_user = 'onepercentsite'
 
 # Directory (on the server) where our project will be running
 env.directory = '/var/www/onepercentsite'
+env.versioned_directory = env.directory
+
+# The number of backup copies to keep
+env.backups = 5
 
 # Name of supervisor service
 env.service_name = 'onepercentsite'
@@ -56,11 +63,28 @@ def virtualenv():
             run('./manage.py collectstatic')
 
     """
-    require('directory')
+    require('versioned_directory')
 
-    with cd(env.directory):
+    with cd(env.versioned_directory):
         with prefix('source env/bin/activate'):
             yield
+
+
+def make_secret():
+    filename = "onepercentclub/settings/secrets.py"
+    secret = urlsafe_b64encode(urandom(33))
+    run("cp ../secrets.py %s" % filename)
+    #run("sed -i \"s/^SECRET_KEY.*/SECRET_KEY = \'%s\'/\" %s" % (secret, filename))
+
+
+def prepare_env():
+    run("pip install -q virtualenv>=1.9.1")
+    with cd(env.versioned_directory):
+        run("virtualenv --system-site-packages --distribute env")  # psycopg2 isn't inside the env
+    with virtualenv():
+        run("pip install -q $(grep \"Django==\" requirements.txt)")  # Some modules want django already
+        run("pip install -q --download-cache /tmp/pipcache -r requirements.txt")
+        make_secret()
 
 
 def set_django_settings():
@@ -234,7 +258,7 @@ def update_git(commit):
 
     status_update('Updating git repository to %s' % describe_commit(commit))
 
-    with cd(env.directory):
+    with cd(env.versioned_directory):
         # Make sure only to fetch the required branch
         # This script should fail if we are updating to a non-deploy commit
         run('git fetch -q -p')
@@ -244,18 +268,25 @@ def update_git(commit):
 def update_tar(commit_id):
     """ Update the remote to given commit_id using tar. """
     require('directory')
+    require('versioned_directory')
+    require('backups')
 
     status_update('Transferring archive of commit %s.' % commit_id)
 
     filename = '%s.tbz2' % commit_id
     local('git archive %s | bzip2 -c > %s' % (commit_id, filename))
-    put(filename, env.directory)
 
-    with cd(env.directory):
+    run("mkdir -p %s" % env.versioned_directory)
+    put(filename, env.versioned_directory)
+
+    with cd(env.versioned_directory):
         run('tar xjf %s' % filename)
         run('rm %s' % filename)
 
     local('rm -f %s' % filename)
+
+    # remove all but the 5 newest directories
+    sudo("ls -td %s-* | tail -n +%d | xargs rm -rf" % (env.directory, env.backups + 1))
 
 
 def prune_unreferenced_files():
@@ -286,13 +317,13 @@ def prepare_django():
     set_django_settings()
 
     require('django_settings')
+    require('versioned_directory')
 
     status_update('Preparing deployment.')
 
+    prepare_env()
+
     with virtualenv():
-        # TODO: Filter out the following messages:
-        # "Could not find a tag or branch '<commit_id>', assuming commit."
-        run('pip install -q -r requirements.txt')
 
         # Remove and compile the .pyc files.
         run('find . -name \*.pyc -delete')
@@ -308,6 +339,10 @@ def prepare_django():
         # Make sure the web user can read and write the static media dir.
         run('chmod a+rw static/media')
 
+        # Make sure the web user can read and write the static directory.
+        # this fails the second time because of files owned by the web user
+        run('chmod -R --quiet a+rw static/; true')
+
         run_web('./manage.py syncdb --migrate --noinput --settings=%s' % env.django_settings)
         run_web('./manage.py collectstatic -l -v 0 --noinput --settings=%s' % env.django_settings)
 
@@ -315,11 +350,18 @@ def prepare_django():
         # prune_unreferenced_files()
 
 
+def symlink_new():
+    require('directory')
+    require('versioned_directory')
+    run("rm -f %s" % env.directory)
+    run("ln -s %s %s" % (env.versioned_directory, env.directory))
+
+
 def restart_site():
     """ Gracefully restart gunicorn using supervisor. """
     require('service_name')
 
-    run('supervisorctl restart %s' % env.service_name)
+    sudo('supervisorctl restart %s' % env.service_name)
 
 
 def set_site_domain():
@@ -342,7 +384,7 @@ def set_site_domain():
         "site.domain = '%s'; "
         "site.name = 'onepercentclub.com'; "
         "site.save()"
-    ) % host
+    ) % env.host
 
     with virtualenv():
         run_web('echo "%s" | ./manage.py shell --plain --settings=%s' % (
@@ -425,6 +467,9 @@ def deploy_staging(revspec=None):
     # Find commit for revspec
     commit = get_commit(revspec)
 
+    commitid = commit.hexsha
+    env.versioned_directory = env.directory + "-" + commitid[:6]
+
     # Find latest available staging version
     tag = find_available_tag('staging')
 
@@ -432,10 +477,12 @@ def deploy_staging(revspec=None):
     assert_release_tag(commit, 'testing')
 
     # Update the code
-    update_tar(commit.hexsha)
+    update_tar(commitid)
 
     # Get Django ready
     prepare_django()
+
+    symlink_new()
 
     # Update site domain for self-reference to work
     set_site_domain()
@@ -445,6 +492,65 @@ def deploy_staging(revspec=None):
 
     # Deploy complete, tag commit
     tag_commit(commit.hexsha, tag)
+
+
+def parse_migrations():
+    migrations = run("ls -1 apps/*/migrations/").split('\n')
+    apps = {}
+    current_app = None
+    for line in migrations:
+        isapp = re.match("apps/([^/]+)/migrations/:", line)
+        if isapp:
+            current_app = isapp.group(1)
+            apps[current_app] = 0
+
+        ismigration = re.match("[0-9]{4}", line)
+        if ismigration:
+            mig = int(ismigration.group(0))
+            if mig > apps[current_app]:
+                apps[current_app] = mig
+
+    return apps
+
+
+def future_migrations(*migs):
+    apps = reduce(set.union, (set(d.keys()) for d in migs))
+    to_migrate = {}
+    for app in apps:
+        ms = [m.get(app, 0) for m in migs]
+        if len(set(ms)) > 1:
+            to_migrate[app] = min(ms)
+
+    return to_migrate
+
+
+@roles('staging')
+@task
+def revert(revspec):
+    set_django_settings()
+    require('directory')
+    require('django_settings')
+
+    commit = get_commit(revspec)
+    commitid = commit.hexsha
+
+    versioned_directory = env.directory + "-" + commitid[:6]
+    #at this point env.versioned_directory == env.directory
+
+    with cd(env.directory):
+        m1 = parse_migrations()
+    with cd(versioned_directory):
+        m2 = parse_migrations()
+
+    to_migrate = future_migrations(m1, m2)
+    sudo('supervisorctl stop %s' % env.service_name)
+    for app, revision in to_migrate.iteritems():
+        with virtualenv():
+            run_web('./manage.py migrate %s %04d --settings=%s' % (app, revision, env.django_settings))
+
+    env.versioned_directory = versioned_directory
+    symlink_new()
+    sudo('supervisorctl start %s' % env.service_name)
 
 
 @roles('production')

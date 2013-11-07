@@ -9,7 +9,7 @@ django_extensions==1.1.1
 
 django_debug_toolbar
 
-raven # Sentry client (remote logging)
+raven==3.3.12 # Sentry client (remote logging)
 django-celery==3.0.17 # Asynchronous task server
 
 # Django Nose integration (for test suites)
@@ -61,7 +61,7 @@ django-taggit-autocomplete-modified==0.1.0b4
 -e git://github.com/onepercentclub/legacyauth.git@3f2406c50dead25a748fb2433de55b73a9162f18#egg=legacyauth
 
 # Gunicorn WSGI server
-gunicorn
+gunicorn==18.0
 
 # Embedding videos and other media
 # https://github.com/coleifer/micawber
@@ -83,8 +83,8 @@ django-admin-tools==0.5.1
 # Fabric deployment helper
 # WARNING: Make sure it's installed in your environment and not system-wide!
 #          The Fabric script depends on gitpython which needs to be available.
-fabric
-gitpython
+fabric==1.8.0
+gitpython==0.3.2.RC1
 
 # Transifex - for translations!
 transifex-client==0.9
