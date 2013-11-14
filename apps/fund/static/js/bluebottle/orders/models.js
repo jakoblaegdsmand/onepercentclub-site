@@ -92,7 +92,27 @@ App.CurrentOrder = App.Order.extend({
 
 App.CurrentOrderDonation = App.Donation.extend({
     url: 'fund/orders/current/donations',
-    order: DS.belongsTo('App.CurrentOrder')
+    order: DS.belongsTo('App.CurrentOrder'),
+    errors: null,
+    checkAmount: function(){
+        this.set('errors', null);
+        var amount = this.get('amount');
+        if (Math.round(amount) != amount){
+            this.set('errors', {amount: ["Please use whole numbers for your donation."]});
+            return false;
+        }
+        if (isNaN(amount)){
+            this.set('errors', {amount: ["This is not a valid amount."]});
+            return false;
+        }
+        if (Math.round(amount) < 5){
+            this.set('errors', {amount: ["Donations should be €5 or over."]});
+            return false;
+        }
+        return true;
+
+    }.observes('amount')
+
 });
 
 

@@ -21,17 +21,12 @@ App.PaymentSignupView = Em.View.extend({
 App.CurrentOrderDonationListView = Em.View.extend({
     templateName: 'current_order_donation_list',
 
-    submit: function(e) {
-        e.preventDefault();
-    },
 
-    change: function(e) {
-        // The "single" / "monthly" change (strings) and the recurringTotal change (number) are sent here and
-        // we only want to deal with the recurringTotal change.
-        var value = parseInt(Em.get(e, 'target.value'));
-        if (Em.typeOf(value) === 'number' && !isNaN(value)) {
-            this.get('controller').set('recurringTotal', value);
-        }
+    submit: function(e) {
+        // Try to go to next step when this form is submitted.
+        e.preventDefault();
+        var controller = this.get('controller');
+        controller.send('nextStep');
     }
 });
 
@@ -45,10 +40,8 @@ App.CurrentOrderVoucherListView = Em.View.extend({
 App.CurrentOrderDonationView = Em.View.extend({
     tagName: 'li',
     classNames: 'project-list-item',
+    attributeBinding: ['step', 'type', 'name', 'maxlength'],
 
-    change: function(e) {
-        this.get('controller').updateDonation(Em.get(e, 'target.value'));
-    },
     actions: {
         deleteDonation: function(item) {
             var controller = this.get('controller');

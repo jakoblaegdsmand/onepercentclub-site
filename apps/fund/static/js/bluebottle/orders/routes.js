@@ -51,6 +51,9 @@ App.CurrentOrderDonationListRoute = Em.Route.extend(App.ScrollToTop, {
     },
 
     setupController: function(controller, donations) {
+        donations.forEach(function(record){
+            controller.get('donationTransaction').add(record);
+        });
         this._super(controller, donations);
         this.controllerFor('currentOrder').set('isVoucherOrder', false);
         controller.set('paymentProfile', App.PaymentProfile.find('current'));

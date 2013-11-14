@@ -117,7 +117,7 @@
         
         <fieldset class="fund-total">
             <div class="fund-total-label">{% trans "Total" %}</div>
-            <div class="fund-total-amount"><em class="currency">&euro;</em> {{ singleTotal }}</div>
+            <div class="fund-total-amount"><em class="currency">&euro;</em> {{ total }}</div>
         </fieldset>
 
         {{#linkTo 'projectList' class="btn-link btn-add"}}<em class="flaticon solid plus-2"></em>
@@ -287,7 +287,7 @@
             {{/each}}
             <label for="fund-amount-1">{% trans "I'd like to give" %}</label>
             <span class="currency"><em>&euro; </em>
-                <input type="number" class="fund-amount-input" id="fund-amount-1" step="5" name="fund-amount-1" size="8" maxlength="4" {{bindAttr value="amount"}} />
+                {{view Em.TextField type="number" class="fund-amount-input" step="5" name="fund-amount-1" size="8" maxlength="4" valueBinding="amount"}}
             </span>            
         </div>
     </div>

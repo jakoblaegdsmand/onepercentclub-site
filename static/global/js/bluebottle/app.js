@@ -467,7 +467,7 @@ App.ApplicationRoute = Em.Route.extend({
                     var donation = store.createRecord(App.CurrentOrderDonation);
                     donation.set('project', project);
                     donation.set('order', order);
-                    donation.save();
+                    // Only save donations when user clicks Next step.
                 }
                 route.transitionTo('currentOrder.donationList');
             });

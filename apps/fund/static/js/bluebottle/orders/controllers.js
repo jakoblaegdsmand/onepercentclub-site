@@ -6,7 +6,17 @@ App.CurrentOrderDonationListController = Em.ArrayController.extend({
     // The CurrentOrderController is needed for the single / recurring radio buttons.
     needs: ['currentUser', 'currentOrder', 'paymentProfile'],
 
-    singleTotal: function() {
+    donationTransaction: function(){
+        var transaction = this.get('transaction');
+        if (!transaction || transaction.get('isDefault') ) {
+            var transaction = this.get('store').transaction();
+            this.set('transaction', transaction);
+        }
+        return transaction;
+    }.property(),
+
+
+    total: function() {
         return this.get('model').getEach('amount').reduce(function(accum, item) {
             // Use parseInt like this so we don't have a temporary string concatenation briefly displaying in the UI.
             return parseInt(accum) + parseInt(item);
@@ -18,60 +28,47 @@ App.CurrentOrderDonationListController = Em.ArrayController.extend({
     }.property('length'),
 
     readyForPayment: function() {
-        if (this.get('length') > 0) {
-            return true;
+        if (this.get('length') == 0) {
+            return false;
         }
-        if (this.get('editingRecurringOrder')) {
-            if (this.get('recurringTotal') != this.get('recurringOrder.total')) {
-                return true;
+        var ready = true;
+        this.get('model').forEach(function(record){
+            if (!record.checkAmount()) {
+                ready = false;
             }
-        }
-        return this.get('recurringTotal') > 0;
-    }.property('length', 'editingRecurringOrder', 'recurringTotal'),
-
-    updateDonation: function(donation, newAmount) {
-        // 'current' order id hack: This can be removed when we have a RESTful Order API.
-        if (Em.isNone(donation)) {
-            return;
-        }
-
-        if (donation.get('isNew')) {
-            var controller = this;
-            // Note: resolveOn is a private ember-data method.
-            donation.resolveOn('didCreate').then(function(donation) {
-                controller.updateCreatedDonation(donation, newAmount)
-            });
-         } else {
-            this.updateCreatedDonation(donation, newAmount)
-        }
-    },
-
-    updateCreatedDonation: function(donation, newAmount) {
-        // Does not work if donation 'isNew' is true.
-        donation.set('errors', []);
-        donation.one('becameInvalid', function(record) {
-            record.set('errors', record.get('errors'));
-
-            // Revert to the value on the server when there's an error.
-            record.transitionTo('loaded');
-            record.reload();
-
-            // Clear the error after 10 seconds.
-            Ember.run.later(this, function() {
-                record.set('errors', []);
-            }, 10000);
         });
-        donation.set('amount', newAmount);
-        donation.save();
+
+        return ready;
+
+    }.property('model.@each.errors'),
+
+    transitionToNextStep: function(){
+        var controller = this;
+        if (this.get('paymentProfile.isComplete')){
+            controller.transitionToRoute('paymentSelect');
+        } else {
+            controller.transitionToRoute('paymentProfile');
+        }
     },
+
     actions: {
         nextStep: function(){
             // Check what information is available and continue to the next applicable step.
             var controller = this;
-            if (this.get('paymentProfile.isComplete')){
-                controller.transitionToRoute('paymentSelect');
+            if (this.get('readyForPayment')) {
+                var order = this.get('controllers.currentOrder.model');
+                this.get('model').forEach(function(record){
+                    record.one('didCreate', function(){
+                        controller.transitionToNextStep();
+                    });
+                    record.one('didUpdate', function(){
+                        controller.transitionToNextStep();
+                    });
+                });
+                order.transaction.commit();
+
             } else {
-                controller.transitionToRoute('paymentProfile');
+                alert('There are still some errors.');
             }
         }
     }
@@ -80,33 +77,14 @@ App.CurrentOrderDonationListController = Em.ArrayController.extend({
 
 App.CurrentOrderDonationController = Em.ObjectController.extend({
     needs: ['currentOrder', 'currentOrderDonationList'],
-    updateDonation: function(newAmount) {
-        var donation = this.get('model');
 
-        var intRegex = /^\d+$/;
-        if(intRegex.test(newAmount)) {
-            var donationListController = this.get('controllers.currentOrderDonationList');
-            donationListController.updateDonation(donation, newAmount);
-        } else {
-            donation.set('errors', {amount: ["Please use whole numbers for your donation."]});
-
-            // Revert to the value on the server when there's an error.
-            donation.transitionTo('loaded');
-            donation.reload();
-
-            // Clear the error after 10 seconds.
-            Ember.run.later(this, function() {
-                donation.set('errors', []);
-            }, 10000);
-        }
-    },
     deleteDonation: function() {
         var donation = this.get('model');
         // Fix because reverse relations aren't cleared.
         // See: http://stackoverflow.com/questions/18806533/deleterecord-does-not-remove-record-from-hasmany
         donation.get('order.donations').removeObject(donation);
         donation.deleteRecord();
-        donation.save();
+        // donation.save();
     }
 });
 
