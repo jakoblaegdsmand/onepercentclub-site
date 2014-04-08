@@ -16,13 +16,22 @@
     </legend>
     <fieldset>
         <div class="fieldset-content">
-            <h3>{% trans "Final Check!" %}</h3>
-            {% trans "You are ready to submit your project now!" %}
-            {% trans "After you submitted your project you can immediately create your first task." %}
+            <h3>{% trans "Almost ready…" %}</h3>
+            <p>
+                {% blocktrans %}
+                Time for one last check! Make sure everything is filled in, all the details are correct and everything makes sense…
+When you click the SUBMIT button, you send your campaign for review. After we receive it, we’ll get back to you within 3 working days (maximum).
+                {% endblocktrans %}
+            <p>
+            <p>
+                {% blocktrans %}
+                After we’ve checked everything, you can start your crowdfunding campaign. Are you ready to rumble?
+                {% endblocktrans %}
+            </p>
         </div>
 
     </fieldset>
-    <button {{bindAttr class=":btn :btn-iconed :btn-submit :btn-primary"}} {{action submitPlan}}><span class="flaticon solid right-2"></span>{% trans "Submit plan" %}</button>
+    <button {{bindAttr class=":btn :btn-iconed :btn-submit :btn-primary"}} {{action submitPlan}}><span class="flaticon solid right-2"></span>{% trans "Submit campaign" %}</button>
 
 {{else}}
     <ul class="missing-steps">

@@ -10,13 +10,13 @@
     {{/unless}}
 
     <legend>
-        <strong>{% trans "Project Description" %}</strong>
-        <p>{% trans "Time to blow us away with the details! Tell us about your motivation, why this project is important and what the impact will be." %}</p>
+        <strong>{% trans "Campagin story & plan" %}</strong>
+        <p>{% trans "What’s your story? Time to blow your friends, colleagues and family away with the details! Tell the world why they should support you and your campaign!" %}</p>
     </legend>
 
     <fieldset>
         <ul>
-            {% bb_component 'bb-text-area' rows=10 name='whywhat' label=_('Why, what and how') undertext=_('Describe your project in more detail.') valueBinding='description' placeholder=_('Describe your project') errors='errors.description' maxlength=800 %}
+            {% bb_component 'bb-text-area' rows=10 name='whywhat' label=_('Why, what and how?') undertext=_('Your full campaign plan') valueBinding='description' placeholder=_('Describe your project') errors='errors.description' maxlength=800 %}
 
             {% bb_component 'bb-text-area' rows=5 label=_('Goal') name='goal' undertext=_('What do you want to achieve with this project and how will you measure your success?') valueBinding='goal' placeholder=_('Describe the goal of the project') maxlength=800 %}
 
@@ -27,5 +27,15 @@
     </fieldset>
 </form>
 {{ partial '_my_project_save_edit_footer'}}
+
+<h4>{% trans "Tips" %}</h4>
+{% blocktrans %}
+<ul>
+    <li>Make your story easy to read, full of interesting details, but not too long.</li>
+    <li>Use headings and paragraphs that will add to your story and make your plan even stronger.</li>
+    <li>Explain – only if you want to – the effects of your campaign, your long-term strategy and who your target group is.</li>
+</ul>
+<p>Find more tips in our <a href="#">FAQ ></a></p>
+{% endblocktrans %}
 
 {% endtplhandlebars %}
