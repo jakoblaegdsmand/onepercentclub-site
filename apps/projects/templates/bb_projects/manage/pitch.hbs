@@ -32,7 +32,7 @@
         </fieldset>
         <fieldset>
             <ul>
-                {% bb_block_component label='Theme' undertext='Add keywords that will make your campaign easier to find' errors='errors.theme' %}
+                {% bb_block_component label='Theme' undertext=_('Add keywords that will make your campaign easier to find') errors='errors.theme' %}
                     {{view App.ThemeSelectView name='theme' selectionBinding="theme" classBinding="errors.theme.length:error"
                     prompt='Select one of the themes.'}}
                 {% endbb_block_component %}
@@ -58,13 +58,8 @@
                 
             </ul>
         </fieldset>
-
-        {% block_verbatim pitch_footer %}
-            {{ partial '_my_project_save_edit_footer'}}
-        {% endblock_verbatim %}
-
+        {{ partial '_my_project_save_edit_footer'}}
     </form>
-
 </div>
 {{ partial '_my_project_sidebar_pitch' }} 
 {% endtplhandlebars %}
