@@ -1,29 +1,51 @@
 App.Project.reopen({
 
-    amount_asked: DS.attr('number'),
-    amount_donated: DS.attr('number'),
-    amount_needed: DS.attr('number'),
+    deadline: DS.attr('date'),
+    amount_asked: DS.attr('number', {defaultValue: 0}),
 
-    task_count: DS.attr('number'),
+    maxAmountAsked: Ember.computed.lte('amount_asked', 1000000),
+    minAmountAsked: Ember.computed.gte('amount_asked', 250),
 
-    isFundable: Em.computed.equal('status.id', '6'),
+    amount_donated: DS.attr('number', {defaultValue: 0}),
+	amount_needed: DS.attr('number', {defaultValue: 0}),
 
-    isStatusPlan: Em.computed.equal('status.id', '5'),
-    isStatusCampaign: Em.computed.equal('status.id', '6'),
-    isStatusCompleted: Em.computed.equal('status.id', '8')
+	calculatedAmountNeeded: function() {
+		    return this.get('amount_asked') - this.get('amount_donated');
+    }.property('amount_asked', 'amount_donated'),
+
+	task_count: DS.attr('number'),
+
+    isFundable: Em.computed.equal('status.id', '5'),
+
+    isStatusCampaign: Em.computed.equal('status.id', '5'),
+    isStatusCompleted: Em.computed.equal('status.id', '7'),
+
+	save: function () {
+		// the amount_needed is calculated here and not in the server
+		this.set('amount_needed', this.get('calculatedAmountNeeded'));
+		this._super();
+	}
 
 });
-
-App.ProjectPreview.reopen({
-    url: 'projects/previews'
-})
 
 App.MyProject.reopen({
     image: DS.attr('image'),
     video: DS.attr('string'),
 
+    init: function () {
+        this._super();
+
+        this.validatedFieldsProperty('validGoal', this.get('requiredGoalFields'));
+        this.missingFieldsProperty('missingFieldsGoal', this.get('requiredGoalFields'));
+    },
+
+    valid: function(){
+        return (this.get('') && this.get('validPitch') && this.get('validGoal'));
+    }.property('validStory', 'validPitch', 'validGoal'),
+
     requiredStoryFields: ['description', 'goal', 'destination_impact'],
-    requiredPitchFields: ['title', 'pitch', 'image', 'theme', 'tags.length', 'deadline', 'country', 'latitude', 'longitude'],
+    requiredGoalFields: ['amount_asked', 'deadline', 'maxAmountAsked', 'minAmountAsked'],
+    requiredPitchFields: ['title', 'pitch', 'image', 'theme', 'tags.length', 'country', 'latitude', 'longitude'],
 
     friendlyFieldNames: {
         'title' : 'Title',
