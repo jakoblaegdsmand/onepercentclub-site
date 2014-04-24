@@ -124,7 +124,8 @@ module.exports = function (grunt) {
           noLineComments: true,
           environment: 'production',
           raw: 'preferred_syntax = :scss\n', // Use `raw` since it's not directly available
-          importPath: ["env/src/bluebottle/bluebottle/common/static/sass"]      
+          importPath: ["env/src/bluebottle/bluebottle/common/static/sass"],
+          force: true,     
         }
       },
       // development
@@ -140,7 +141,8 @@ module.exports = function (grunt) {
           relativeAssets: true,
           noLineComments: false,
           raw: 'preferred_syntax = :scss\n', // Use `raw` since it's not directly available  
-          importPath: ["../bluebottle/bluebottle/common/static/sass"]      
+          importPath: ["../bluebottle/bluebottle/common/static/sass"],
+          force: true,
         }
       }
     }    
@@ -156,7 +158,9 @@ module.exports = function (grunt) {
   grunt.registerTask('deploy', ['concat:dist', 'uglify:dist', 'hashres']);
   grunt.registerTask('render-sass:dev', ['compass:dev']);
   grunt.registerTask('render-sass:test', ['compass:dist']);
-  grunt.registerTask('render-sass:live', ['compass:dist'], function() {
+  grunt.registerTask('render-sass:live', 'Alias for "compass:dist" task with compressed sass.', function() {
     sassOutputStyle = "compressed";
+
+    grunt.task.run('compass:dist');
   });
 }
