@@ -21,16 +21,15 @@ urlpatterns += bb_urlpatterns
 
 urlpatterns += patterns('',
 
+    url(r'^api/bb_projects/', include('apps.projects.urls.api')),
+
     url(r'^api/fund/', include('apps.fund.urlsapi')),
     url(r'^api/fundraisers/', include('apps.fundraisers.urlsapi')),
     url(r'^api/organizations/', include('apps.organizations.urlsapi')),
+    #url(r'^api/pages/', include('apps.pages.urlsapi')),
     url(r'^api/partners/', include('apps.partners.urlsapi')),
 
-    url(r'^api/', include('apps.projects.urls.api')),
-
-
     # Homepage API urls
-    url(r'^api/projects/', include('apps.projects.urls.api')),
     url(r'^api/homepage/', include('apps.homepage.urls.api')),
     url(r'^api/stats', include('apps.statistics.urlsapi')),
 

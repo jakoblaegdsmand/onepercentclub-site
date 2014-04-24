@@ -292,7 +292,7 @@ def prepare_django():
     with virtualenv():
         # TODO: Filter out the following messages:
         # "Could not find a tag or branch '<commit_id>', assuming commit."
-        run('pip instal -q --allow-all-external --allow-unverified django-admin-tools -r requirements.txt')
+        run('pip install -q --allow-all-external --allow-unverified django-admin-tools -r requirements.txt')
 
         # Remove and compile the .pyc files.
         run('find . -name \*.pyc -delete')
@@ -309,7 +309,7 @@ def prepare_django():
         run('chmod a+rw static/media')
 
         run_web('./manage.py syncdb --migrate --noinput --settings=%s' % env.django_settings)
-        run_web('./manage.py collectstatic -l -v 0 --noinput --settings=%s' % env.django_settings)
+        run_web('./manage.py collectstatic --clear -l -v 0 --noinput --settings=%s' % env.django_settings)
 
         # Disabled for now; it unjustly deletes cached thumbnails
         # prune_unreferenced_files()

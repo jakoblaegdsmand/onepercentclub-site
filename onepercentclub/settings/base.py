@@ -244,6 +244,7 @@ INSTALLED_APPS = (
     'apps.members',
     'apps.tasks',
     'apps.projects',
+    'apps.organizations',
 
     # apps overriding bluebottle functionality should come before the bluebottle entries
     # (template loaders pick the first template they find)
@@ -268,7 +269,6 @@ INSTALLED_APPS = (
 
     'apps.bluebottle_dashboard',
     'apps.contentplugins',
-    'apps.organizations',
     'apps.campaigns',
     'apps.fundraisers',
     'apps.fund',
@@ -305,8 +305,6 @@ TASKS_TASKFILE_MODEL = 'tasks.TaskFile'
 ORGANIZATIONS_ORGANIZATION_MODEL = 'organizations.Organization'
 ORGANIZATIONS_DOCUMENT_MODEL = 'organizations.OrganizationDocument'
 ORGANIZATIONS_MEMBER_MODEL = 'organizations.OrganizationMember'
-
-
 
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to

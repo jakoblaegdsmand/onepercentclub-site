@@ -1,4 +1,6 @@
 module.exports = function (grunt) {
+  var sassOutputStyle = grunt.option('output_style') || 'expanded';
+
   grunt.loadNpmTasks('grunt-contrib-concat');
   grunt.loadNpmTasks('grunt-ember-template-compiler');
   grunt.loadNpmTasks('grunt-hashres');
@@ -8,6 +10,7 @@ module.exports = function (grunt) {
   grunt.loadNpmTasks('grunt-contrib-uglify'); 
   grunt.loadNpmTasks('grunt-microlib');
   grunt.loadNpmTasks('grunt-contrib-compass');
+  grunt.loadNpmTasks('grunt-contrib-watch');
 
   // Project configuration.
   grunt.initConfig({
@@ -29,9 +32,15 @@ module.exports = function (grunt) {
         }
       },
       scss: {
-        files: ['/static/global/**/*'],
-        tasks: ['compass:dev'],
-      }
+      	options: {
+	      livereload: false,
+	    },
+        files: ['static/global/sass/**/*',"../bluebottle/bluebottle/common/static/sass/**/*"],
+        tasks: ['render-sass:dev'],
+      },
+      css: {
+        files: ['static/global/css/**/*.css']
+      },
     },
     hashres: {
       options: {
@@ -110,11 +119,12 @@ module.exports = function (grunt) {
           cssDir: 'css',
           imagesDir: 'images',          
           javascriptsDir: 'js',          
-          outputStyle: 'compressed',
+          outputStyle: sassOutputStyle,
           relativeAssets: true,
           noLineComments: true,
           environment: 'production',
-          raw: 'preferred_syntax = :scss\n' // Use `raw` since it's not directly available
+          raw: 'preferred_syntax = :scss\n', // Use `raw` since it's not directly available
+          importPath: ["env/src/bluebottle/bluebottle/common/static/sass"]      
         }
       },
       // development
@@ -126,14 +136,16 @@ module.exports = function (grunt) {
           cssDir: 'css',
           imagesDir: 'images',          
           javascriptsDir: 'js',          
-          outputStyle: 'expanded',
+          outputStyle: sassOutputStyle,
           relativeAssets: true,
           noLineComments: false,
-          raw: 'preferred_syntax = :scss\n' // Use `raw` since it's not directly available        
+          raw: 'preferred_syntax = :scss\n', // Use `raw` since it's not directly available  
+          importPath: ["../bluebottle/bluebottle/common/static/sass"]      
         }
       }
     }    
   });
+
 
   grunt.registerTask('default', ['dev']);
   grunt.registerTask('build', ['bower:install', 'concat:dist']);
@@ -142,4 +154,9 @@ module.exports = function (grunt) {
   grunt.registerTask('travis', ['build', 'karma:ci']);
   grunt.registerTask('local', ['dev', 'watch']);
   grunt.registerTask('deploy', ['concat:dist', 'uglify:dist', 'hashres']);
+  grunt.registerTask('render-sass:dev', ['compass:dev']);
+  grunt.registerTask('render-sass:test', ['compass:dist']);
+  grunt.registerTask('render-sass:live', ['compass:dist'], function() {
+    sassOutputStyle = "compressed";
+  });
 }

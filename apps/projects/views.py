@@ -1,3 +1,4 @@
+from apps.projects.models import ProjectBudgetLine
 from bluebottle.geo.models import Country
 from bluebottle.geo.serializers import CountrySerializer
 import django_filters
@@ -11,10 +12,9 @@ from django.views.generic.detail import DetailView
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
-from apps.projects.models import ProjectBudgetLine, ProjectPhases, ProjectTheme
 from apps.fund.models import Donation, DonationStatuses
 from apps.projects.serializers import (
-    ProjectSupporterSerializer, ManageProjectSerializer, ProjectPreviewSerializer, ProjectThemeSerializer)
+    ProjectSupporterSerializer, ProjectPreviewSerializer, ProjectThemeSerializer, ProjectBudgetLineSerializer)
 from apps.projects.permissions import IsProjectOwner
 from apps.fundraisers.models import FundRaiser
 
@@ -31,7 +31,7 @@ class ProjectPreviewList(generics.ListAPIView):
     paginate_by_param = 'page_size'
     max_paginate_by = 100
 
-    filter_fields = ('phase', )
+    filter_fields = ('status', 'country', 'theme')
 
     def get_queryset(self):
         qs = Project.objects
@@ -45,29 +45,20 @@ class ProjectPreviewList(generics.ListAPIView):
             qs = qs.order_by('title')
         elif ordering == 'deadline':
             qs = qs.order_by('deadline')
-        elif ordering == 'money_needed':
-            qs = qs.order_by('money_needed')
+        elif ordering == 'amount_needed':
+            qs = qs.order_by('amount_needed')
         elif ordering == 'popularity':
             qs = qs.order_by('-popularity')
-
-        country = self.request.QUERY_PARAMS.get('country', None)
-        if country:
-            qs = qs.filter(country=country)
-
-        theme = self.request.QUERY_PARAMS.get('theme', None)
-        if theme:
-            qs = qs.filter(theme_id=theme)
 
         text = self.request.QUERY_PARAMS.get('text', None)
         if text:
             qs = qs.filter(Q(title__icontains=text) |
                            Q(pitch__icontains=text) |
-                           Q(description__icontains=text) |
-                           Q(title__icontains=text))
+                           Q(description__icontains=text))
 
         # only projects which are in a viewable status should be visible
         qs = qs.filter(status__viewable=True)
-
+        
         return qs
 
 
@@ -77,7 +68,7 @@ class ProjectPreviewDetail(generics.RetrieveAPIView):
 
     def get_queryset(self):
         qs = super(ProjectPreviewDetail, self).get_queryset()
-        qs = qs.exclude(phase=ProjectPhases.pitch)
+        qs = qs.filter(status__viewable=True)
         return qs
 
 
@@ -94,11 +85,11 @@ class ProjectList(generics.ListAPIView):
     model = Project
     serializer_class = ProjectSerializer
     paginate_by = 10
-    filter_fields = ('phase', )
+    filter_fields = ('status', )
 
     def get_queryset(self):
         qs = super(ProjectList, self).get_queryset()
-        qs = qs.exclude(phase=ProjectPhases.pitch)
+        qs = qs.filter(status__viewable=True)
         return qs
 
 
@@ -108,7 +99,7 @@ class ProjectDetail(generics.RetrieveAPIView):
 
     def get_queryset(self):
         qs = super(ProjectDetail, self).get_queryset()
-        qs = qs.exclude(phase=ProjectPhases.pitch)
+        qs = qs.filter(status__viewable=True)
         return qs
 
 
@@ -178,33 +169,19 @@ class ProjectDonationList(ProjectSupporterList):
         return queryset.filter(**filter_kwargs)
 
 
-class ManageProjectList(generics.ListCreateAPIView):
-    model = Project
-    serializer_class = ManageProjectSerializer
-    permission_classes = (IsAuthenticated, )
-    paginate_by = 10
-
-    def get_queryset(self):
-        """
-        Overwrite the default to only return the Projects the currently logged in user owns.
-        """
-        queryset = super(ManageProjectList, self).get_queryset()
-        queryset = queryset.filter(owner=self.request.user)
-        queryset = queryset.order_by('-created')
-        return queryset
-
-    def pre_save(self, obj):
-        obj.owner = self.request.user
+class ManageProjectBudgetLineList(generics.ListCreateAPIView):
+    model = ProjectBudgetLine
+    serializer_class = ProjectBudgetLineSerializer
+    paginate_by = 50
 
 
-class ManageProjectDetail(generics.RetrieveUpdateAPIView):
-    model = Project
-    serializer_class = ManageProjectSerializer
+class ManageProjectBudgetLineDetail(generics.RetrieveUpdateDestroyAPIView):
+    model = ProjectBudgetLine
+    serializer_class = ProjectBudgetLineSerializer
     permission_classes = (IsProjectOwner, )
 
 
 # Django template Views
-
 class ProjectDetailView(DetailView):
     """ This is the project view that search engines will use. """
     model = Project
@@ -219,25 +196,16 @@ class ProjectIframeView(DetailView):
     def dispatch(self, *args, **kwargs):
         return super(ProjectIframeView, self).dispatch(*args, **kwargs)
 
-# class MacroMicroListView(ListView):
-#     model = Project
-#     queryset = Project.objects.filter(partner_organization__slug='macro_micro')
-#
-#
-#     def render_to_response(self, context, **response_kwargs):
-#         return super(MacroMicroListView, self).render_to_response(
-#             context,
-#             mimetype='application/xml',
-#             **response_kwargs)
+
+class MacroMicroListView(generics.ListAPIView):
+    model = Project
+    queryset = Project.objects.filter(partner_organization__slug='macro_micro')
 
 
-class ProjectThemeList(generics.ListAPIView):
-    model = ProjectTheme
-    serializer_class = ProjectThemeSerializer
+    def render_to_response(self, context, **response_kwargs):
+        return super(MacroMicroListView, self).render_to_response(
+            context,
+            mimetype='application/xml',
+            **response_kwargs)
 
-
-
-class ProjectThemeDetail(generics.RetrieveAPIView):
-    model = ProjectTheme
-    serializer_class = ProjectThemeSerializer
 

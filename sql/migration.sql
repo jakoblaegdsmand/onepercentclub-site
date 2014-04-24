@@ -155,21 +155,22 @@ CREATE TABLE bb_projects_projectphase (
 	"sequence" integer NOT NULL,
 	active boolean NOT NULL,
 	editable boolean NOT NULL,
-	viewable boolean NOT NULL
+	viewable boolean NOT NULL,
+  slug character varying(200) NOT NULL
 );
 
 -- Set default phases
 
-INSERT INTO bb_projects_projectphase (id, name, description, sequence, active, editable, viewable) VALUES
-  (1, 'Plan - New', '', 1, true, true, false),
-  (2, 'Plan - Submitted', '', 2, true, false, false),
-  (3, 'Plan - Needs Work', '', 3, true, true, false),
-  (4, 'Plan - Rejected', '', 4, true, false, false),
-  (6, 'Campaign', '', 6, true, true, true),
-  (7, 'Stopped', '', 6, true, false, false),
-  (8, 'Done - Complete', '', 8, true, true, true),
-  (9, 'Done - Incomplete', '', 9, true, false, true),
-  (10, 'Done - Stopped', '', 10, true, false, false);
+INSERT INTO bb_projects_projectphase (id, name, description, sequence, active, editable, viewable, slug) VALUES
+  (1, 'Plan - New', '', 1, true, true, false, 'plan-new'),
+  (2, 'Plan - Submitted', '', 2, true, false, false, 'plan-submitted'),
+  (3, 'Plan - Needs Work', '', 3, true, true, false, 'plan-needs-work'),
+  (4, 'Plan - Rejected', '', 4, true, false, false, 'plan-rejected'),
+  (5, 'Campaign', '', 5, true, true, true, 'campaign'),
+  (6, 'Stopped', '', 6, true, false, false, 'stopped'),
+  (7, 'Done - Complete', '', 7, true, true, true, 'done-complete'),
+  (8, 'Done - Incomplete', '', 8, true, false, true, 'done-incomplete'),
+  (9, 'Done - Stopped', '', 9, true, false, false, 'done-stopped');
 
 -- Project Theme
 
@@ -190,7 +191,7 @@ ALTER TABLE projects_project
 	ADD COLUMN image character varying(255) DEFAULT '' NOT NULL,
 	ADD COLUMN organization_id integer,
 	ADD COLUMN country_id integer,
-	ADD COLUMN theme_id integer DEFAULT 0 NOT NULL,
+	ADD COLUMN theme_id integer,
 	ADD COLUMN latitude numeric(21,18),
 	ADD COLUMN longitude numeric(21,18),
 	ADD COLUMN reach integer,
@@ -198,9 +199,28 @@ ALTER TABLE projects_project
 	ADD COLUMN deadline timestamp with time zone,
   ADD COLUMN amount_asked numeric(12,2) DEFAULT 0.00 NOT NULL,
   ADD COLUMN amount_donated numeric(12,2) DEFAULT 0.00 NOT NULL,
-  ADD COLUMN amount_needed numeric(12,2) DEFAULT 0.00 NOT NULL;
+  ADD COLUMN amount_needed numeric(12,2) DEFAULT 0.00 NOT NULL,
+  ADD COLUMN effects text DEFAULT '',
+  ADD COLUMN for_who text DEFAULT '',
+  ADD COLUMN future text DEFAULT '',
+  ADD COLUMN language_id integer;
 
+-- Language
 
+CREATE TABLE utils_language (
+    id serial NOT NULL PRIMARY KEY,
+    code varchar(2) NOT NULL,
+    language_name varchar(100) NOT NULL,
+    native_name varchar(100) NOT NULL
+);
+
+INSERT INTO utils_language (id, code, language_name, native_name) VALUES
+  (1, 'en', 'English', 'English'),
+  (2, 'nl', 'Dutch', 'Nederlands');
+
+ALTER TABLE projects_project ADD CONSTRAINT "project_projects_language_id_refs_language_id" 
+  FOREIGN KEY ("language_id") 
+  REFERENCES "utils_language" ("id") DEFERRABLE INITIALLY DEFERRED;
 
 -- Organization
 
@@ -208,13 +228,11 @@ ALTER TABLE organizations_organization
   ALTER COLUMN description SET DEFAULT '',
   ALTER COLUMN legal_status SET DEFAULT '';
 
-
-
 -- Migrate phases to status
 
 UPDATE projects_project SET status_id = 1 WHERE phase IN ('pitch', 'plan');
 UPDATE projects_project SET status_id = 2 WHERE id in (SELECT project_id FROM projects_projectpitch WHERE status = 'submitted');
-UPDATE projects_project SET status_id = 6 WHERE phase = 'campaign';
+UPDATE projects_project SET status_id = 5 WHERE phase = 'campaign';
 UPDATE projects_project SET status_id = 8 WHERE phase IN ('acts', 'results', 'realized');
 UPDATE projects_project SET status_id = 10 WHERE phase = 'failed';
 
@@ -264,6 +282,53 @@ UPDATE projects_project p
   FROM projects_projectcampaign AS pc
   WHERE pc.project_id = p.id;
 
+-- Migrate ProjectPlan
+
+UPDATE projects_project p
+  SET effects = pp.effects,
+      for_who = pp.for_who,
+      future = pp.future,
+      reach = pp.reach
+  FROM projects_projectplan as pp
+  WHERE pp.project_id = p.id;
+
+-- Now drop phase
+
+ALTER TABLE projects_project DROP COLUMN phase;
+
+-- Add 'story' column to projects
+ALTER TABLE projects_project ADD COLUMN story text;
+
+-- Add 'allow overfunding' column to projects
+ALTER TABLE projects_project ADD COLUMN allow_overfunding boolean DEFAULT TRUE;
+
+
+-- Move the Why What How, Effects and Future fields to Story field
+
+UPDATE projects_project p
+  SET story = '<h2>Why, What and How</h2>' || project.description || '</br></br><h2>Effects</h2>' || project.effects || '</br></br><h2>Future</h2>' || project.future
+  FROM projects_project as project
+  WHERE project.id = p.id;
+
+-- Migrate Budget Lines
+
+-- Reference project instead of project plan
+ALTER TABLE projects_projectbudgetline
+  ADD COLUMN project_id INTEGER NULL;
+
+UPDATE projects_projectbudgetline pbl
+  SET project_id = (
+    SELECT project_id FROM projects_projectplan pp
+    WHERE pp.id = pbl.project_plan_id);
+
+-- Remove now obsolete project_plan_id
+
+ALTER TABLE projects_projectbudgetline
+  DROP COLUMN project_plan_id;
+
+-- At foreign key constraint
+
+
 
 --
 -- TASKS
@@ -303,6 +368,11 @@ ALTER TABLE pages_page
 	ADD COLUMN full_page boolean DEFAULT FALSE;
 
 UPDATE pages_page set full_page = TRUE WHERE slug IN ('about', 'get-involved');
+
+-- Rename old User Address model
+ALTER TABLE accounts_useraddress RENAME TO members_useraddress;
+
+
 
 
 ------------
